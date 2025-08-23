@@ -3,3 +3,4 @@ map
 osrm-data
 output
 .idea
+.env
