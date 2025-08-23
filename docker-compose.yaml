@@ -1,0 +1,50 @@
+services:
+  osrm-importer-ch:
+    image: ghcr.io/project-osrm/osrm-backend:v6.0.0
+    container_name: osrm_importer_ch
+    volumes:
+      - ./osrm-data/ch:/data/ch
+      - ./import_CH.sh:/app/import_CH.sh
+    command: /app/import_CH.sh
+
+  osrm-importer-mld:
+    image: ghcr.io/project-osrm/osrm-backend:v6.0.0
+    container_name: osrm_importer_mld
+    volumes:
+      - ./osrm-data/mld:/data/mld
+      - ./import_MLD.sh:/app/import_MLD.sh
+    command: /app/import_MLD.sh
+    depends_on:
+      osrm-importer-ch:
+        condition: service_completed_successfully
+
+  import-addresses:
+    image: ghcr.io/project-osrm/osrm-backend:v6.0.0
+    container_name: input_addresses
+    volumes:
+      - ./map:/map
+      - ./import_addresses.sh:/app/import_addresses.sh
+    command: /app/import_addresses.sh
+    depends_on:
+      osrm-importer-mld:
+        condition: service_completed_successfully
+
+  dataset-generator:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+    image: mathiasvandaele/dropsafe-dataset-generator:latest
+    tty: true
+    container_name: dataset-generator
+    environment:
+      INPUT_ADDRESS_FILE: /map/adresses-france.csv
+      OUTPUT_FILE: /output/output.jsonl
+      OSRM_FILE_CH: /osrm-data/ch/france-latest.osrm
+      OSRM_FILE_MLD: /osrm-data/mld/france-latest.osrm
+    volumes:
+      - ./map:/map
+      - ./output:/output
+      - ./osrm-data:/osrm-data
+    depends_on:
+      import-addresses:
+        condition: service_completed_successfully
