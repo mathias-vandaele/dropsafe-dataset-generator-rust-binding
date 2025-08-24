@@ -5,6 +5,7 @@ mod projection;
 
 use crate::models::{Coord, EARTH_RADIUS_KM, NEIGHBORS, TripletLossTrainingLine};
 use crate::projection::lat_lon_to_three_d;
+use itertools::Itertools;
 use kiddo::SquaredEuclidean;
 use osrm_binding::algorithm::Algorithm;
 use osrm_binding::osrm_engine::OsrmEngine;
@@ -13,21 +14,18 @@ use rayon::iter::ParallelIterator;
 use rayon::prelude::IntoParallelRefIterator;
 use std::error::Error;
 use std::f32::consts::PI;
-use std::fs::{File};
+use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::thread;
 use std::time::Instant;
-use rand::prelude::IteratorRandom;
 
 fn main() -> Result<(), Box<dyn Error>> {
-
-
     let conf = config::get_config();
 
     let (values, kd_tree) = data_loader::load_coords_and_build_tree(&conf.input_address_file)?;
     let rings = data_loader::create_all_rings();
-    let engine: OsrmEngine =
-        OsrmEngine::new(&conf.osrm_file_ch, Algorithm::CH).expect("Failed to initialize OSRM engine");
+    let engine: OsrmEngine = OsrmEngine::new(&conf.osrm_file_ch, Algorithm::CH)
+        .expect("Failed to initialize OSRM engine");
 
     let (tx, rx) = crossbeam::channel::unbounded::<String>();
 
@@ -38,9 +36,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         let file = File::create(&conf.output_file).unwrap();
         let mut writer = BufWriter::new(file);
         for line in rx {
-            writer.write(format!("{}", line).as_bytes()).unwrap();
+            writer.write(line.as_bytes()).unwrap();
             count = count + 1;
-            if count % 100 == 0 {
+            if count % 1000 == 0 {
                 let request_treated = count - previous_count;
                 let elapsed = start_time.elapsed().as_secs_f64();
                 let rps = request_treated as f64 / elapsed;
@@ -58,12 +56,13 @@ fn main() -> Result<(), Box<dyn Error>> {
             .for_each_with(tx.clone(), |tx, origin_point| {
                 let around = points_on_circle(origin_point[0], origin_point[1], *ring);
                 let durations = around
-                    .iter()
+                    .into_iter()
                     .map(|point| {
-                        kd_tree.approx_nearest_one::<SquaredEuclidean>(&lat_lon_to_three_d(*point))
+                        kd_tree.approx_nearest_one::<SquaredEuclidean>(&lat_lon_to_three_d(point))
                     })
-                    .choose_multiple(&mut rand::rng(), 2)
-                    .iter()
+                    .sorted_by(|x1, x2| x1.distance.total_cmp(&x2.distance) )
+                    .unique_by(|n| n.item)
+                    .take(4)
                     .filter_map(|nearest| {
                         engine
                             .simple_route(
@@ -80,6 +79,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                             .map(|route| (values[nearest.item as usize], route.durations))
                     })
                     .collect::<Vec<([f32; 2], f64)>>();
+
                 if let (Some(min), Some(max)) = (
                     durations
                         .iter()
@@ -107,8 +107,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                     let str = format!(
                         "{}{}",
                         serde_json::to_string(&triplet).expect("Could not format String"),
-                        "\n");
-                    tx.send(str.to_owned()).unwrap();
+                        "\n"
+                    );
+                    tx.send(str).unwrap();
                 } else {
                     return;
                 }

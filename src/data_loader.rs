@@ -7,7 +7,7 @@ use rand::seq::SliceRandom;
 
 pub fn create_all_rings() -> Vec<f32> {
     let mut rings: Vec<f32> = vec![1.0, 2.0, 3.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0, 150.0, 200.0, 250.0, 300.0];
-    rings.shuffle(&mut rand::rng());
+    rings.reverse();
     rings
 }
 
