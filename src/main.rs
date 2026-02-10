@@ -3,7 +3,7 @@ mod data_loader;
 mod models;
 mod projection;
 
-use crate::models::{Coord, EARTH_RADIUS_KM, NEIGHBORS, TripletLossTrainingLine};
+use crate::models::{Coord, EARTH_RADIUS_KM, NEIGHBORS, Route};
 use crate::projection::lat_lon_to_three_d;
 use itertools::Itertools;
 use kiddo::SquaredEuclidean;
@@ -60,9 +60,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                     .map(|point| {
                         kd_tree.approx_nearest_one::<SquaredEuclidean>(&lat_lon_to_three_d(point))
                     })
-                    .sorted_by(|x1, x2| x1.distance.total_cmp(&x2.distance) )
-                    .unique_by(|n| n.item)
-                    .take(4)
                     .filter_map(|nearest| {
                         engine
                             .simple_route(
@@ -80,38 +77,24 @@ fn main() -> Result<(), Box<dyn Error>> {
                     })
                     .collect::<Vec<([f32; 2], f64)>>();
 
-                if let (Some(min), Some(max)) = (
-                    durations
-                        .iter()
-                        .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap()),
-                    durations
-                        .iter()
-                        .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap()),
-                ) {
-                    let triplet = TripletLossTrainingLine {
-                        anchor: Coord {
+                for (destination_point, duration) in durations {
+                    let route = Route {
+                        source: Coord {
+                            lat: destination_point[0],
+                            lon: destination_point[1],
+                        },
+                        destination: Coord {
                             lat: origin_point[0],
                             lon: origin_point[1],
                         },
-                        positive: Coord {
-                            lat: min.0[0],
-                            lon: min.0[1],
-                        },
-                        negative: Coord {
-                            lat: max.0[0],
-                            lon: max.0[1],
-                        },
-                        positive_time: min.1 as f32,
-                        negative_time: max.1 as f32,
+                        time: duration as f32,
                     };
                     let str = format!(
                         "{}{}",
-                        serde_json::to_string(&triplet).expect("Could not format String"),
+                        serde_json::to_string(&route).expect("Could not format String"),
                         "\n"
                     );
                     tx.send(str).unwrap();
-                } else {
-                    return;
                 }
             })
     });
