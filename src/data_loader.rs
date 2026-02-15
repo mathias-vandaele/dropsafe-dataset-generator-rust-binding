@@ -33,7 +33,7 @@ pub fn load_coords_and_build_tree(
     let lat_index = header_map.get("lat").ok_or("Column 'lat' not found")?;
     let lon_index = header_map.get("lon").ok_or("Column 'lon' not found")?;
 
-    println!("🌳  Building the k-dimensional tree...");
+    println!("🌳  Building the k-dimensional tree (Euclidean geometry) ...");
     let mut values: Vec<[f32; 2]> = rdr
         .records()
         .filter_map(|record| match record {
