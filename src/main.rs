@@ -131,8 +131,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         );
     });
 
-    rings.par_iter().for_each_with(tx.clone(), |tx, ring| {
-        values.iter().for_each(|origin_point| {
+    values.par_iter().for_each_with(tx.clone(), |tx, origin_point| {
+        rings.iter().for_each(|ring| {
             points_on_circle(origin_point[0], origin_point[1], *ring)
                 .into_iter()
                 .map(|point| {

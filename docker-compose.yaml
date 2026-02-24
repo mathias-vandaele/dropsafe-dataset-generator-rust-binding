@@ -39,7 +39,7 @@ services:
     container_name: dataset-generator
     environment:
       INPUT_ADDRESS_FILE: /map/adresses-france.csv
-      OUTPUT_FILE: /output/output.jsonl
+      OUTPUT_FILE: /output/output.parquet
       OSRM_FILE_CH: /osrm-data/ch/france-latest.osrm
       OSRM_FILE_MLD: /osrm-data/mld/france-latest.osrm
     volumes:
