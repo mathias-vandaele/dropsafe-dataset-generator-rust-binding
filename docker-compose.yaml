@@ -34,6 +34,7 @@ services:
 #      context: .
 #      dockerfile: Dockerfile
     image: mathiasvandaele/dropsafe-dataset-generator:latest
+    platform: linux/amd64
     tty: true
     container_name: dataset-generator
     environment:
